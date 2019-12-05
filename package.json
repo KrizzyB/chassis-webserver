@@ -1,0 +1,25 @@
+{
+  "name": "chassis-webserver",
+  "version": "0.0.2",
+  "description": "Express wrapper for the Chassis bootstrapper",
+  "main": "webserver.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/KrizzyB/chassis-webserver.git"
+  },
+  "author": "Kris Sinclair",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/KrizzyB/chassis-webserver/issues"
+  },
+  "homepage": "https://github.com/KrizzyB/chassis-webserver#readme",
+  "dependencies": {
+    "body-parser": "latest",
+    "cookie-parser": "^1.4.4",
+    "express": "^4.17.1",
+    "express-fileupload": "^1.1.6"
+  }
+}
