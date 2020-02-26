@@ -4,6 +4,7 @@ const cookieParser = require('cookie-parser');
 const fileUpload = require("express-fileupload");
 const http = require('http');
 const https = require('https');
+const Config = config.getConfigModel();
 let app = express();
 
 class WebServer {
@@ -12,10 +13,12 @@ class WebServer {
      * @param {Array} [staticDir]
      * @param {Object} [ssl]
      */
-    constructor(port = config.webserver ? config.webserver.port : null, staticDir = config.webserver ? config.webserver.staticDir : null, ssl = config.webserver ? config.webserver.ssl : null) {
-        this.port = port ? port : 80;
-        this.staticDir = staticDir ? staticDir : ["html"];
-        this.ssl = ssl ? ssl : {};
+    constructor(port, staticDir, ssl ) {
+        let webserverConfig = config.getConfigByID("webserver");
+        this.config = webserverConfig ? webserverConfig.merge(getDefaultConfig()) : getDefaultConfig().data;
+        this.port = port ? port : this.config.port;
+        this.staticDir = staticDir ? staticDir : this.config.staticDir;
+        this.ssl = ssl ? ssl : this.config.ssl;
 
         for (let i=0; i<this.staticDir.length; i++) {
             app.use(express.static(this.staticDir[i]));
@@ -134,3 +137,18 @@ class WebServer {
 }
 
 module.exports = WebServer;
+
+/**
+ *
+ * @returns {Config}
+ */
+function getDefaultConfig() {
+    return new Config({
+        id: "webserver",
+        data: {
+            "port": 80,
+            "staticDir": ["html"],
+            "ssl": {}
+        }
+    });
+}
