@@ -6,6 +6,8 @@ const http = require('http');
 const https = require('https');
 let app = express();
 
+let logModule = "chassis-webserver";
+
 class WebServer {
     /**
      * @param {Number|String} [port]
@@ -34,15 +36,16 @@ class WebServer {
                 cert: FileSystem.readFileSync(this.ssl.cert)
             }, app);
             httpsServer.listen(this.port);
-            Log.info("Webserver listening for HTTPS connections on port " + this.port + ".");
+            Log.info("Webserver listening for HTTPS connections on port " + this.port + ".", logModule);
         } else {
             let httpServer = http.createServer(app);
             httpServer.listen(this.port);
-            Log.info("Webserver listening for HTTP connections on port " + this.port + ".");
+            Log.info("Webserver listening for HTTP connections on port " + this.port + ".", logModule);
         }
     }
 
     getRoutes() {
+        let currentPath = [];
         function readDirectory(dir) {
             let items = FileSystem.readSync(dir);
             function checkItem(i) {
@@ -52,32 +55,15 @@ class WebServer {
                         let dirs = FileSystem.readSync(dir + items[i]);
 
                         if (dirs.includes("api")) {
-                            let api = FileSystem.readSync(dir + items[i] + "/api");
-                            for (let a=0; a < api.length; a++) {
-                                let name = api[a].substring(0, api[a].lastIndexOf("."));
-
-                                if (name === "system") {
-                                    name = "";
-                                }
-
-                                app.use("/data/" + name, require(appRoot + dir + items[i] + "/api/" + api[a]));
-                            }
+                            createEndpoint("api", dir, items[i]);
                         }
 
                         if (dirs.includes("frontend")) {
-                            let frontend = FileSystem.readSync(dir + items[i] + "/frontend");
-                            for (let f=0; f < frontend.length; f++) {
-                                let name = frontend[f].substring(0, frontend[f].lastIndexOf("."));
-
-                                if (name === "system") {
-                                    name = "";
-                                }
-
-                                app.use("/" + name, require(appRoot + dir + items[i] + "/frontend/" + frontend[f]));
-                            }
+                            createEndpoint("frontend", dir, items[i]);
                         }
 
                     } else {
+                        currentPath.push(items[i]);
                         readDirectory(dir + items[i] + "/");
                     }
 
@@ -91,9 +77,31 @@ class WebServer {
             if (items.length) {
                 checkItem(0);
             }
+
+            currentPath.pop();
         }
 
         readDirectory("./app/");
+
+        function createEndpoint(type, dir, item) {
+            let endpoints = FileSystem.readSync(dir + item + "/" + type);
+            for (let e=0; e < endpoints.length; e++) {
+                let prefix = type === "api" ? "/data/" : "/";
+
+                let groupName = currentPath[currentPath.length-1] + "/";
+                if (groupName === "system/") {
+                    groupName = "";
+                }
+
+                let endpointName = endpoints[e].substring(0, endpoints[e].lastIndexOf("."));
+                if (endpointName === type) {
+                    endpointName = "";
+                }
+
+                app.use(prefix + groupName + endpointName, require(appRoot + dir + item + "/" + type + "/" + endpoints[e]));
+                Log.verbose("Endpoint created: " + prefix + groupName + endpointName, logModule);
+            }
+        }
     }
 
     static getParams(req) {
