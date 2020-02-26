@@ -4,7 +4,6 @@ const cookieParser = require('cookie-parser');
 const fileUpload = require("express-fileupload");
 const http = require('http');
 const https = require('https');
-const Config = config.getConfigModel();
 let app = express();
 
 class WebServer {
@@ -143,6 +142,7 @@ module.exports = WebServer;
  * @returns {Config}
  */
 function getDefaultConfig() {
+    const Config = config.getConfigModel();
     return new Config({
         id: "webserver",
         data: {
