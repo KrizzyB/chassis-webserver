@@ -4,6 +4,7 @@ const cookieParser = require('cookie-parser');
 const fileUpload = require("express-fileupload");
 const http = require('http');
 const https = require('https');
+const sortEndpoints = require("./helper/sortEndpoints");
 let app = express();
 
 let logModule = "chassis-webserver";
@@ -20,6 +21,7 @@ class WebServer {
         this.port = port ? port : this.config.port;
         this.staticDir = staticDir ? staticDir : this.config.staticDir;
         this.ssl = ssl ? ssl : this.config.ssl;
+        this.endpoints = [];
 
         for (let i=0; i<this.staticDir.length; i++) {
             app.use(express.static(this.staticDir[i]));
@@ -45,6 +47,7 @@ class WebServer {
     }
 
     getRoutes() {
+        let endpoints = [];
         let currentPath = [];
         function readDirectory(dir) {
             let items = FileSystem.readSync(dir);
@@ -55,11 +58,11 @@ class WebServer {
                         let dirs = FileSystem.readSync(dir + items[i]);
 
                         if (dirs.includes("api")) {
-                            createEndpoint("api", dir, items[i]);
+                            endpoints = endpoints.concat(createEndpoint("api", dir, items[i]));
                         }
 
                         if (dirs.includes("frontend")) {
-                            createEndpoint("frontend", dir, items[i]);
+                            endpoints = endpoints.concat(createEndpoint("frontend", dir, items[i]));
                         }
 
                     } else {
@@ -83,6 +86,13 @@ class WebServer {
 
         readDirectory("./app/");
 
+        endpoints = sortEndpoints(endpoints);
+
+        for (let e=0; e<endpoints.length; e++) {
+            this.endpoints.push(app.use(endpoints[e].url.prefix + endpoints[e].url.groupName + endpoints[e].url.endpointName, require(appRoot + endpoints[e].router.dir + endpoints[e].router.item + "/" + endpoints[e].router.type + "/" + endpoints[e].router.endpoint)));
+            Log.verbose("Endpoint created: " + endpoints[e].url.prefix + endpoints[e].url.groupName + endpoints[e].url.endpointName, logModule);
+        }
+
         function createEndpoint(type, dir, item) {
             let endpoints = FileSystem.readSync(dir + item + "/" + type);
             for (let e=0; e < endpoints.length; e++) {
@@ -98,9 +108,22 @@ class WebServer {
                     endpointName = "";
                 }
 
-                app.use(prefix + groupName + endpointName, require(appRoot + dir + item + "/" + type + "/" + endpoints[e]));
-                Log.verbose("Endpoint created: " + prefix + groupName + endpointName, logModule);
+                endpoints[e] = {
+                    url: {
+                        prefix: prefix,
+                        groupName: groupName,
+                        endpointName: endpointName
+                    },
+                    router: {
+                        dir: dir,
+                        item: item,
+                        type: type,
+                        endpoint: endpoints[e]
+                    }
+                };
             }
+
+            return endpoints;
         }
     }
 
