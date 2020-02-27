@@ -9,7 +9,7 @@
 module.exports = function(endpoints) {
     //sort endpoints with a prefix
     let prefixedEndpoints = splitArrayByKey(endpoints, "prefix");
-    prefixedEndpoints = sortEndpoints(prefixedEndpoints, "groupName");
+    prefixedEndpoints = sortEndpoints(prefixedEndpoints, "endpointName");
 
     //sort endpoints with a prefix and a groupanme
     let prefixedGroupedEndpoints = splitArrayByKey(prefixedEndpoints, "groupName");
@@ -22,9 +22,7 @@ module.exports = function(endpoints) {
     //sort endpoints with a groupName
     let namedEndpoints = splitArrayByKey(endpoints, "endpointName");
 
-    let orderedEndpoints = prefixedGroupedEndpoints.concat(prefixedEndpoints, groupedEndpoints, namedEndpoints, endpoints);
-
-    return orderedEndpoints;
+    return prefixedGroupedEndpoints.concat(prefixedEndpoints, groupedEndpoints, namedEndpoints, endpoints);
 };
 
 function splitArrayByKey(endpoints, key) {
