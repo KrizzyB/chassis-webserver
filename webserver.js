@@ -1,7 +1,4 @@
 const express = require("express");
-const bodyParser = require("body-parser");
-const cookieParser = require('cookie-parser');
-const fileUpload = require("express-fileupload");
 const http = require('http');
 const https = require('https');
 const readRoutesFromFileSystem = require("./helper/getRoutes");
@@ -14,6 +11,7 @@ class WebServer {
      * @param {Object} [options]
      * @param {Array} [options.routes]
      * @param {Array} [options.staticDir]
+     * @param {Array} [options.middleware]
      * @param {Object} [options.ssl]
      * @param {String} [options.ssl.key]
      * @param {String} [options.ssl.cert]
@@ -27,6 +25,8 @@ class WebServer {
         this.port = port ? port : this.config.port;
         this.routes = this.getRoutes(options.routes ? options.routes : this.config.routes);
         this.staticDir = options.staticDir ? options.staticDir : this.config.staticDir;
+        this.middleware = options.middleware ? options.middleware : this.config.middleware;
+        this.plugins = {};
         this.ssl = options.ssl ? options.ssl : this.config.ssl;
         this.endpoints = generateEndpoints(this.routes);
 
@@ -34,9 +34,10 @@ class WebServer {
             this.app.use(express.static(this.staticDir[i]));
         }
 
-        this.app.use(bodyParser.json());
-        this.app.use(cookieParser());
-        this.app.use(fileUpload());
+        for (let m=0; m<this.middleware.length; m++) {
+            this.plugins[this.middleware[m].name] = require(this.middleware[m].path);
+            this.app.use(eval(this.middleware[m].exec));
+        }
 
         for (let e=0; e<this.endpoints.length; e++) {
             let router = require(appRoot + this.endpoints[e].router.dir);
@@ -129,6 +130,7 @@ function getDefaultConfig() {
             "port": 80,
             "routes" : [],
             "staticDir": ["html"],
+            "middleware": [],
             "ssl": {}
         }
     });

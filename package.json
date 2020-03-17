@@ -1,6 +1,6 @@
 {
   "name": "chassis-webserver",
-  "version": "0.0.8",
+  "version": "0.0.9",
   "description": "Express wrapper for the Chassis bootstrapper",
   "main": "webserver.js",
   "scripts": {
@@ -17,9 +17,6 @@
   },
   "homepage": "https://github.com/KrizzyB/chassis-webserver#readme",
   "dependencies": {
-    "body-parser": "latest",
-    "cookie-parser": "^1.4.4",
-    "express": "^4.17.1",
-    "express-fileupload": "^1.1.6"
+    "express": "^4.17.1"
   }
 }
