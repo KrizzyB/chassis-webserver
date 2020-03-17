@@ -36,7 +36,7 @@ class WebServer {
 
         for (let m=0; m<this.middleware.length; m++) {
             this.plugins[this.middleware[m].name] = require(this.middleware[m].path);
-            this.app.use(eval(this.middleware[m].exec));
+            this.app.use(eval("this.plugins." + this.middleware[m].exec));
         }
 
         for (let e=0; e<this.endpoints.length; e++) {
