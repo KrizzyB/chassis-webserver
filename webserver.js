@@ -4,127 +4,76 @@ const cookieParser = require('cookie-parser');
 const fileUpload = require("express-fileupload");
 const http = require('http');
 const https = require('https');
-const sortEndpoints = require("./helper/sortEndpoints");
-let app = express();
-
-let logModule = "chassis-webserver";
+const readRoutesFromFileSystem = require("./helper/getRoutes");
+const generateEndpoints = require("./helper/generateEndpoints");
+const logModule = "chassis-webserver";
 
 class WebServer {
     /**
      * @param {Number|String} [port]
-     * @param {Array} [staticDir]
-     * @param {Object} [ssl]
+     * @param {Object} [options]
+     * @param {Array} [options.routes]
+     * @param {Array} [options.staticDir]
+     * @param {Object} [options.ssl]
+     * @param {String} [options.ssl.key]
+     * @param {String} [options.ssl.cert]
      */
-    constructor(port, staticDir, ssl ) {
-        let webserverConfig = config.getConfigByID("webserver");
+    constructor(port = 80, options = {}) {
+        const webserverConfig = config.getConfigByID("webserver");
+
+        this.allowPrivate = false;
+        this.app = express();
         this.config = webserverConfig ? webserverConfig.merge(getDefaultConfig()) : getDefaultConfig().data;
         this.port = port ? port : this.config.port;
-        this.staticDir = staticDir ? staticDir : this.config.staticDir;
-        this.ssl = ssl ? ssl : this.config.ssl;
-        this.endpoints = [];
+        this.routes = this.getRoutes(options.routes ? options.routes : this.config.routes);
+        this.staticDir = options.staticDir ? options.staticDir : this.config.staticDir;
+        this.ssl = options.ssl ? options.ssl : this.config.ssl;
+        this.endpoints = generateEndpoints(this.routes);
 
         for (let i=0; i<this.staticDir.length; i++) {
-            app.use(express.static(this.staticDir[i]));
+            this.app.use(express.static(this.staticDir[i]));
         }
-        app.use(bodyParser.json());
-        app.use(cookieParser());
-        app.use(fileUpload());
 
-        this.getRoutes();
+        this.app.use(bodyParser.json());
+        this.app.use(cookieParser());
+        this.app.use(fileUpload());
+
+        for (let e=0; e<this.endpoints.length; e++) {
+            let router = require(appRoot + this.endpoints[e].router.dir);
+            if (typeof router !== "function") { //compatibility with routers prior to being able to make them private
+                if (!router.private || this.allowPrivate) {
+                    this.app.use(this.endpoints[e].url.prefix + this.endpoints[e].url.appGroup + this.endpoints[e].url.router, router.router);
+                    Log.verbose("Endpoint created: " + this.endpoints[e].url.prefix + this.endpoints[e].url.appGroup + this.endpoints[e].url.router, logModule);
+                }
+            } else {
+                this.app.use(this.endpoints[e].url.prefix + this.endpoints[e].url.appGroup + this.endpoints[e].url.router, router);
+                Log.verbose("Endpoint created: " + this.endpoints[e].url.prefix + this.endpoints[e].url.appGroup + this.endpoints[e].url.router, logModule);
+            }
+        }
 
         if (this.ssl.cert && this.ssl.key) {
             let httpsServer = https.createServer({
                 key: FileSystem.readFileSync(this.ssl.key),
                 cert: FileSystem.readFileSync(this.ssl.cert)
-            }, app);
+            }, this.app);
             httpsServer.listen(this.port);
-            Log.info("Webserver listening for HTTPS connections on port " + this.port + ".", logModule);
+            Log.info("Server listening for HTTPS connections on port " + this.port + ".", logModule);
         } else {
-            let httpServer = http.createServer(app);
+            let httpServer = http.createServer(this.app);
             httpServer.listen(this.port);
-            Log.info("Webserver listening for HTTP connections on port " + this.port + ".", logModule);
+            Log.info("Server listening for HTTP connections on port " + this.port + ".", logModule);
         }
     }
 
-    getRoutes() {
-        let endpoints = [];
-        let currentPath = [];
-        function readDirectory(dir) {
-            let items = FileSystem.readSync(dir);
-            function checkItem(i) {
-                if (FileSystem.isDir(dir + items[i])) {
-
-                    if (items[i] === "routes") {
-                        let dirs = FileSystem.readSync(dir + items[i]);
-
-                        if (dirs.includes("api")) {
-                            endpoints = endpoints.concat(createEndpoint("api", dir, items[i]));
-                        }
-
-                        if (dirs.includes("frontend")) {
-                            endpoints = endpoints.concat(createEndpoint("frontend", dir, items[i]));
-                        }
-
-                    } else {
-                        currentPath.push(items[i]);
-                        readDirectory(dir + items[i] + "/");
-                    }
-
-                }
-
-                if (i+1 < items.length) {
-                    checkItem(i+1);
-                }
-            }
-
-            if (items.length) {
-                checkItem(0);
-            }
-
-            currentPath.pop();
+    getRoutes(routes) {
+        let self = this;
+        if (routes.length === 0) {
+            routes = readRoutesFromFileSystem();
+        } else {
+            self.allowPrivate = true;
         }
 
-        readDirectory("./app/");
-
-        endpoints = sortEndpoints(endpoints);
-
-        for (let e=0; e<endpoints.length; e++) {
-            this.endpoints.push(app.use(endpoints[e].url.prefix + endpoints[e].url.groupName + endpoints[e].url.endpointName, require(appRoot + endpoints[e].router.dir + endpoints[e].router.item + "/" + endpoints[e].router.type + "/" + endpoints[e].router.endpoint)));
-            Log.verbose("Endpoint created: " + endpoints[e].url.prefix + endpoints[e].url.groupName + endpoints[e].url.endpointName, logModule);
-        }
-
-        function createEndpoint(type, dir, item) {
-            let endpoints = FileSystem.readSync(dir + item + "/" + type);
-            for (let e=0; e < endpoints.length; e++) {
-                let prefix = type === "api" ? "/data/" : "/";
-
-                let groupName = currentPath[currentPath.length-1] + "/";
-                if (groupName === "system/") {
-                    groupName = "";
-                }
-
-                let endpointName = endpoints[e].substring(0, endpoints[e].lastIndexOf("."));
-                if (endpointName === type) {
-                    endpointName = "";
-                }
-
-                endpoints[e] = {
-                    url: {
-                        prefix: prefix,
-                        groupName: groupName,
-                        endpointName: endpointName
-                    },
-                    router: {
-                        dir: dir,
-                        item: item,
-                        type: type,
-                        endpoint: endpoints[e]
-                    }
-                };
-            }
-
-            return endpoints;
-        }
+        return routes;
     }
 
     static getParams(req) {
@@ -178,6 +127,7 @@ function getDefaultConfig() {
         id: "webserver",
         data: {
             "port": 80,
+            "routes" : [],
             "staticDir": ["html"],
             "ssl": {}
         }

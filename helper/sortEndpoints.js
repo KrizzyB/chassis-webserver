@@ -9,18 +9,18 @@
 module.exports = function(endpoints) {
     //sort endpoints with a prefix
     let prefixedEndpoints = splitArrayByKey(endpoints, "prefix");
-    prefixedEndpoints = sortEndpoints(prefixedEndpoints, "endpointName");
+    prefixedEndpoints = sortEndpoints(prefixedEndpoints, "router");
 
     //sort endpoints with a prefix and a groupanme
-    let prefixedGroupedEndpoints = splitArrayByKey(prefixedEndpoints, "groupName");
-    prefixedGroupedEndpoints = sortEndpoints(prefixedGroupedEndpoints, "endpointName");
+    let prefixedGroupedEndpoints = splitArrayByKey(prefixedEndpoints, "appGroup");
+    prefixedGroupedEndpoints = sortEndpoints(prefixedGroupedEndpoints, "router");
 
     //sort endpoints with a groupName
-    let groupedEndpoints = splitArrayByKey(endpoints, "groupName");
-    groupedEndpoints = sortEndpoints(groupedEndpoints, "endpointName");
+    let groupedEndpoints = splitArrayByKey(endpoints, "appGroup");
+    groupedEndpoints = sortEndpoints(groupedEndpoints, "router");
 
     //sort endpoints with a groupName
-    let namedEndpoints = splitArrayByKey(endpoints, "endpointName");
+    let namedEndpoints = splitArrayByKey(endpoints, "router");
 
     return prefixedGroupedEndpoints.concat(prefixedEndpoints, groupedEndpoints, namedEndpoints, endpoints);
 };
