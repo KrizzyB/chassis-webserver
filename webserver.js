@@ -7,8 +7,8 @@ const logModule = "chassis-webserver";
 
 class WebServer {
     /**
-     * @param {Number|String} [port]
      * @param {Object} [options]
+     * @param {Number|String} [options.port]
      * @param {Array} [options.routes]
      * @param {Array} [options.staticDir]
      * @param {Array} [options.middleware]
@@ -16,13 +16,13 @@ class WebServer {
      * @param {String} [options.ssl.key]
      * @param {String} [options.ssl.cert]
      */
-    constructor(port = 80, options = {}) {
+    constructor(options = {}) {
         const webserverConfig = config.getConfigByID("webserver");
 
         this.allowPrivate = false;
         this.app = express();
         this.config = webserverConfig ? webserverConfig.merge(getDefaultConfig()) : getDefaultConfig().data;
-        this.port = port ? port : this.config.port;
+        this.port = options.port ? options.port : this.config.port;
         this.routes = this.getRoutes(options.routes ? options.routes : this.config.routes);
         this.staticDir = options.staticDir ? options.staticDir : this.config.staticDir;
         this.middleware = options.middleware ? options.middleware : this.config.middleware;
